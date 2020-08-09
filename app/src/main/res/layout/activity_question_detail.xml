@@ -25,4 +25,12 @@
         android:layout_margin="16dp"
         android:src="@drawable/plus" />
 
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="お気に入り登録する"
+        android:background="#A4A4A4"
+        android:id="@+id/button1"
+        android:layout_alignParentBottom="true"/>
+
 </RelativeLayout>

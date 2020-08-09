@@ -18,6 +18,7 @@ import android.provider.MediaStore
 import android.support.design.widget.Snackbar
 import android.support.v7.app.AppCompatActivity
 import android.util.Base64
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 
@@ -149,16 +150,22 @@ class QuestionSendActivity : AppCompatActivity(), View.OnClickListener, Database
             data["body"] = body
             data["name"] = name
 
+            //課題追加ここから
+            data["flag"]="追加済み"
+            //ここまで
+
             // 添付画像を取得する
             val drawable = imageView.drawable as? BitmapDrawable
+            Log.d("loglog", drawable.toString())
 
             // 添付画像が設定されていれば画像を取り出してBASE64エンコードする
             if (drawable != null) {
                 val bitmap = drawable.bitmap
+
                 val baos = ByteArrayOutputStream()
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos)
-                val bitmapString = Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT)
 
+                val bitmapString = Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT)
                 data["image"] = bitmapString
             }
 

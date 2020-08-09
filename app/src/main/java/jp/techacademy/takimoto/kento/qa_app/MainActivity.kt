@@ -21,6 +21,7 @@ import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import android.util.Base64  //追加する
 import android.widget.ListView
+import android.util.Log
 
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -29,16 +30,25 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var mGenre = 0
 
     // --- ここから ---
+    private lateinit var mAuth: FirebaseAuth
     private lateinit var mDatabaseReference: DatabaseReference
     private lateinit var mListView: ListView
     private lateinit var mQuestionArrayList: ArrayList<Question>
     private lateinit var mAdapter: QuestionsListAdapter
 
     private var mGenreRef: DatabaseReference? = null
+    private var mFavoriteRef: DatabaseReference? = null
+
+//    private val flist1 = arrayListOf<String>()
+    private val flist2 = arrayListOf<String>()
+
 
     private val mEventListener = object : ChildEventListener {
         override fun onChildAdded(dataSnapshot: DataSnapshot, s: String?) {
             val map = dataSnapshot.value as Map<String, String>
+            //
+            Log.d("loglog", "ON_CHILD_ADDED")
+            //
             val title = map["title"] ?: ""
             val body = map["body"] ?: ""
             val name = map["name"] ?: ""
@@ -47,10 +57,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             val bytes =
                 if (imageString.isNotEmpty()) {
                     Base64.decode(imageString, Base64.DEFAULT)
+
                 } else {
                     byteArrayOf()
                 }
-
+            Log.d("loglog", imageString.toString())
             val answerArrayList = ArrayList<Answer>()
             val answerMap = map["answers"] as Map<String, String>?
             if (answerMap != null) {
@@ -64,10 +75,25 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
             }
 
-            val question = Question(title, body, name, uid, dataSnapshot.key ?: "",
-                mGenre, bytes, answerArrayList)
-            mQuestionArrayList.add(question)
-            mAdapter.notifyDataSetChanged()
+            val question = Question(
+                title, body, name, uid, dataSnapshot.key ?: "",
+                mGenre, bytes, answerArrayList
+            )
+
+            Log.d("loglog", flist2.toString())
+
+            if(favflag==0){
+
+                mQuestionArrayList.add(question)
+                mAdapter.notifyDataSetChanged()
+            }else {
+                for (item in flist2) {
+                    if (item.equals(dataSnapshot.key)) {
+                        mQuestionArrayList.add(question)
+                        mAdapter.notifyDataSetChanged()
+                    }
+                }
+            }
         }
 
         override fun onChildChanged(dataSnapshot: DataSnapshot, s: String?) {
@@ -107,11 +133,56 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         }
     }
+
+
+    private val mFavoriteListener = object : ChildEventListener {
+        override fun onChildAdded(dataSnapshot: DataSnapshot, s: String?) {
+            val map = dataSnapshot.value as Map<String, String>
+
+//            val genre = map["genre"] ?: ""
+
+            val questionUid = map["questionUid"] ?: ""
+
+//            Log.d("loglog", genre.toString())
+//            Log.d("loglog", questionUid.toString())
+
+//            flist1.add(genre.toString())
+
+            flist2.add(questionUid.toString())
+
+//            Log.d("loglog", flist1.toString())
+//            Log.d("loglog", flist2.toString())
+//            Log.d("loglog", flist2[0])
+
+        }
+
+
+
+        override fun onChildChanged(dataSnapshot: DataSnapshot, s: String?) {
+
+        }
+
+        override fun onChildRemoved(p0: DataSnapshot) {
+
+        }
+
+        override fun onChildMoved(p0: DataSnapshot, p1: String?) {
+
+        }
+
+        override fun onCancelled(p0: DatabaseError) {
+
+        }
+    }
+
+
     // --- ここまで追加する ---
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContentView(R.layout.activity_main)
+
         mToolbar = findViewById(R.id.toolbar)
         setSupportActionBar(mToolbar)
 
@@ -169,10 +240,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onResume() {
         super.onResume()
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
+        val user = FirebaseAuth.getInstance().currentUser
 
         // 1:趣味を既定の選択とする
         if(mGenre == 0) {
             onNavigationItemSelected(navigationView.menu.getItem(0))
+            Log.d("loglog", mGenre.toString())
         }
     }
 
@@ -194,25 +267,38 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         return super.onOptionsItemSelected(item)
     }
 
+    var favflag = 0
+
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         val id = item.itemId
 
         if (id == R.id.nav_hobby) {
             mToolbar.title = "趣味"
             mGenre = 1
+            favflag = 0
         } else if (id == R.id.nav_life) {
             mToolbar.title = "生活"
             mGenre = 2
+            favflag = 0
         } else if (id == R.id.nav_health) {
             mToolbar.title = "健康"
             mGenre = 3
+            favflag = 0
         } else if (id == R.id.nav_compter) {
             mToolbar.title = "コンピューター"
             mGenre = 4
+            favflag = 0
+        } else if (id == R.id.nav_favorite) {
+            //お気に入り一覧画面へ遷移
+            mToolbar.title = "お気に入りリスト"
+            mGenre = 10
+            favflag = 1
         }
 
         val drawer = findViewById<DrawerLayout>(R.id.drawer_layout)
         drawer.closeDrawer(GravityCompat.START)
+
+        Log.d("loglog", mGenre.toString())
 
         // --- ここから ---
         // 質問のリストをクリアしてから再度Adapterにセットし、AdapterをListViewにセットし直す
@@ -223,10 +309,38 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // 選択したジャンルにリスナーを登録する
         if (mGenreRef != null) {
             mGenreRef!!.removeEventListener(mEventListener)
+            Log.d("loglog", mGenre.toString()+"!")
         }
-        mGenreRef = mDatabaseReference.child(ContentsPATH).child(mGenre.toString())
-        mGenreRef!!.addChildEventListener(mEventListener)
-        // --- ここまで追加する ---
+
+        if(mGenre==10) {
+
+            flist2.clear()
+
+            val user = FirebaseAuth.getInstance().currentUser
+            mFavoriteRef = mDatabaseReference.child(FavoritesPATH).child(user!!.uid)
+            mFavoriteRef!!.addChildEventListener(mFavoriteListener)
+
+            mGenreRef = mDatabaseReference.child(ContentsPATH).child("1")
+            mGenreRef!!.addChildEventListener(mEventListener)
+
+            mGenreRef = mDatabaseReference.child(ContentsPATH).child("2")
+            mGenreRef!!.addChildEventListener(mEventListener)
+
+            mGenreRef = mDatabaseReference.child(ContentsPATH).child("3")
+            mGenreRef!!.addChildEventListener(mEventListener)
+
+            mGenreRef = mDatabaseReference.child(ContentsPATH).child("4")
+            mGenreRef!!.addChildEventListener(mEventListener)
+
+//            for(i=1,i<5,i++)
+//            mGenreRef = mDatabaseReference.child(ContentsPATH).child(i.toString)
+//            mGenreRef!!.addChildEventListener(mEventListener)
+//
+
+        }else {
+            mGenreRef = mDatabaseReference.child(ContentsPATH).child(mGenre.toString())
+            mGenreRef!!.addChildEventListener(mEventListener)
+        }
 
         return true
     }
